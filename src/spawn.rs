@@ -30,5 +30,5 @@ pub async fn sleep(duration: f32) {
     #[cfg(not_wasm)]
     async_std::task::sleep(std::time::Duration::from_secs_f32(duration)).await;
     #[cfg(wasm)]
-    gloo_timers::future::TimeoutFuture::new((duration.to_f32() * 1000.0) as _).await;
+    gloo_timers::future::TimeoutFuture::new((duration * 1000.0) as _).await;
 }
