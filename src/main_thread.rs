@@ -34,14 +34,19 @@ pub(crate) fn supposed_main_id() -> u64 {
 mod test {
     use std::sync::atomic::Ordering;
 
+    use pretty_assertions::assert_eq;
     use serial_test::serial;
+    use wasm_bindgen_test::wasm_bindgen_test;
 
     use crate::{main_thread::MAIN_THREAD_ID, supposed_main_id};
 
-    #[test]
     #[serial]
+    #[wasm_bindgen_test(unsupported = test)]
     fn test() {
         MAIN_THREAD_ID.store(0, Ordering::Relaxed);
         assert_eq!(supposed_main_id(), 1);
+
+        MAIN_THREAD_ID.store(5, Ordering::Relaxed);
+        assert_eq!(supposed_main_id(), 5);
     }
 }
