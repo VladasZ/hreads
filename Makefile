@@ -1,6 +1,7 @@
 test:
 	cargo test --all
 	cargo test --all --release
+	make test-wasm
 
 lint:
 	cargo clippy \

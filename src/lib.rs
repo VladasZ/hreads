@@ -7,6 +7,7 @@ mod spawn;
 
 pub use dispatch::*;
 pub use main_thread::*;
+#[cfg(not_wasm)]
 pub use parallel::*;
 pub use spawn::*;
 
