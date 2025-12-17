@@ -1,40 +1,68 @@
 #![cfg(not_wasm)]
 
-use anyhow::Result;
-use tokio::{spawn, sync::mpsc::channel};
+use std::sync::Arc;
 
-pub async fn first_ok<F, Output>(futures: impl IntoIterator<Item = F>) -> Result<Output>
+use log::error;
+use tokio::{
+    select, spawn,
+    sync::{Mutex, mpsc::channel},
+};
+
+pub async fn first_ok<F, Output, E>(futures: impl IntoIterator<Item = F>) -> Result<Output, E>
 where
     Output: Send + 'static,
-    F: Future<Output = Result<Output>> + Send + 'static, {
-    let (s, mut r) = channel::<Output>(1);
+    E: Send + 'static,
+    F: Future<Output = Result<Output, E>> + Send + 'static, {
+    let counter = Arc::new(Mutex::new(0));
+    let (ok_sender, mut ok_receiver) = channel::<Output>(1);
+    let (err_sender, mut err_receiver) = channel::<E>(1);
+
+    let futures: Vec<_> = futures.into_iter().collect();
+    let len = futures.len();
 
     for fut in futures {
-        let s = s.clone();
+        let ok_sender = ok_sender.clone();
+        let err_sender = err_sender.clone();
+        let counter = counter.clone();
         spawn(async move {
             let result = fut.await;
 
-            if let Ok(result) = result {
-                _ = s.send(result).await;
+            match result {
+                Ok(result) => {
+                    _ = ok_sender
+                        .send(result)
+                        .await
+                        .inspect_err(|e| error!("Failed to send ok result: {e}"));
+                }
+                Err(err) => {
+                    let mut counter = counter.lock().await;
+                    *counter += 1;
+
+                    if *counter == len {
+                        _ = err_sender.send(err).await;
+                    }
+                }
             }
         });
     }
 
-    let result = r.recv().await.unwrap();
-
-    Ok(result)
+    select! {
+        ok = ok_receiver.recv() => Ok(ok.unwrap()),
+        err = err_receiver.recv() => Err(err.unwrap()),
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use anyhow::{anyhow, bail};
+    use anyhow::{Result, anyhow, bail};
     use fake::{Fake, Faker};
+    use pretty_assertions::assert_eq;
 
     use super::*;
 
     #[tokio::test]
     async fn all_ok() -> Result<()> {
-        let result = first_ok((0..5).map(|_| async move { Ok(55) })).await?;
+        let result = first_ok((0..5).map(|_| async move { Ok::<i32, anyhow::Error>(55) })).await?;
 
         assert_eq!(55, result);
 
@@ -59,11 +87,9 @@ mod test {
 
     #[tokio::test]
     async fn all_err() -> Result<()> {
-        let result = first_ok((0..50).map(|_| async move { bail!("allal") })).await?;
+        let result: Result<i32, _> = first_ok((0..50).map(|_| async move { bail!("allal") })).await;
 
-        dbg!(&result);
-
-        // assert_eq!(77, result);
+        assert_eq!(anyhow!("allal").to_string(), result.err().unwrap().to_string());
 
         Ok(())
     }
