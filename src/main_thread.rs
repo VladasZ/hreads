@@ -3,6 +3,8 @@ use std::{
     thread::current,
 };
 
+use log::error;
+
 static MAIN_THREAD_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn current_thread_id() -> u64 {
@@ -10,10 +12,13 @@ pub fn current_thread_id() -> u64 {
 }
 
 pub fn assert_main_thread() {
-    assert!(
-        is_main_thread(),
-        "This operation can be called only from main thread"
-    );
+    let is_main = is_main_thread();
+
+    if !is_main {
+        error!("This operation can be called only from main thread");
+    }
+
+    assert!(is_main, "This operation can be called only from main thread");
 }
 
 pub fn is_main_thread() -> bool {
