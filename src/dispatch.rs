@@ -1,10 +1,11 @@
 use std::sync::{
-    Arc, Mutex,
+    Arc,
     mpsc::{Sender, channel},
 };
 
 use anyhow::Result;
 use log::warn;
+use parking_lot::Mutex;
 
 use crate::main_thread::is_main_thread;
 
@@ -28,17 +29,17 @@ where
     let (sender, receiver) = channel::<()>();
 
     let capture = result.clone();
-    SIGNALLED.lock().unwrap().push((
+    SIGNALLED.lock().push((
         sender,
         Box::new(move || {
-            let mut res = capture.lock().unwrap();
+            let mut res = capture.lock();
             *res = action().into();
         }),
     ));
 
     receiver.recv().expect("Failed to receive result in on_main");
 
-    result.lock().unwrap().take().unwrap()
+    result.lock().take().unwrap()
 }
 
 pub fn wait_for_next_frame() {
@@ -53,7 +54,7 @@ pub fn on_main(action: impl FnOnce() + Send + 'static) {
     if is_main_thread() {
         action();
     } else {
-        CALLBACKS.lock().unwrap().push(Box::new(action));
+        CALLBACKS.lock().push(Box::new(action));
     }
 }
 
@@ -67,7 +68,7 @@ pub fn on_main_sync(action: impl FnOnce() + Send + 'static) {
         action();
     } else {
         let (sender, receiver) = channel::<()>();
-        SIGNALLED.lock().unwrap().push((sender, Box::new(action)));
+        SIGNALLED.lock().push((sender, Box::new(action)));
         while receiver.try_recv().is_err() {}
     }
 }
@@ -75,12 +76,12 @@ pub fn on_main_sync(action: impl FnOnce() + Send + 'static) {
 pub fn after(delay: f32, action: impl FnOnce() + Send + 'static) {
     crate::spawn(async move {
         crate::sleep(delay).await;
-        CALLBACKS.lock().unwrap().push(Box::new(action));
+        CALLBACKS.lock().push(Box::new(action));
     });
 }
 
 pub fn invoke_dispatched() {
-    let Ok(mut callback) = CALLBACKS.try_lock() else {
+    let Some(mut callback) = CALLBACKS.try_lock() else {
         warn!("Failed to lock CALLBACKS");
         return;
     };
@@ -90,7 +91,7 @@ pub fn invoke_dispatched() {
     }
     drop(callback);
 
-    let Ok(mut signalled) = SIGNALLED.try_lock() else {
+    let Some(mut signalled) = SIGNALLED.try_lock() else {
         warn!("Failed to lock SIGNALLED");
         return;
     };
