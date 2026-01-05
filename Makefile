@@ -18,4 +18,4 @@ lint:
 
 test-wasm:
 	cargo install wasm-pack
-	wasm-pack test --firefox --headless
+	wasm-pack test --safari --headless

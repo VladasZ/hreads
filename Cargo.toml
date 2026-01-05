@@ -1,6 +1,6 @@
 [package]
 name = "hreads"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 description = "Multithreading primitives."
 license = "MIT OR Apache-2.0"
@@ -11,27 +11,27 @@ name = "hreads"
 crate-type = ["rlib", "staticlib", "dylib"]
 
 [dependencies]
-log = "~0.4"
-anyhow = "~1.0"
-parking_lot = "~0.12"
+log = "0.4"
+anyhow = "1.0"
+parking_lot = "0.12"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-async-std = "~1.13"
-pollster = "~0.4"
-tokio = { version = "~1.48", features = ["full"] }
-futures = "~0.3"
+async-std = "1.13"
+pollster = "0.4"
+tokio = { version = "1.49.0", features = ["full"] }
+futures = "0.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-gloo-timers = { version = "~0.3", features = ["futures"] }
-wasm-bindgen-futures = "~0.4"
+gloo-timers = { version = "0.3", features = ["futures"] }
+wasm-bindgen-futures = "0.4"
 
 [dev-dependencies]
-serial_test = "~3.2"
-wasm-bindgen-test = "~0.3"
-pretty_assertions = "~1.4"
+serial_test = "3.3"
+wasm-bindgen-test = "0.3"
+pretty_assertions = "1.4"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-fake = "~4.4"
+fake = "4.4"
 
 [build-dependencies]
-plat = "~0.5"
+plat = "0.5"
