@@ -18,4 +18,5 @@ lint:
 
 test-wasm:
 	cargo install wasm-pack
-	wasm-pack test --safari --headless
+	wasm-pack test --firefox --headless
+	echo "wasm tests: Ok"

@@ -1,4 +1,6 @@
 use std::{
+    mem::transmute,
+    num::NonZero,
     sync::atomic::{AtomicU64, Ordering},
     thread::current,
 };
@@ -8,7 +10,10 @@ use log::error;
 static MAIN_THREAD_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn current_thread_id() -> u64 {
-    current().id().as_u64().into()
+    // TODO: Use as_u64 when https://github.com/rust-lang/rust/issues/67939 is stabilized
+    let id = current().id();
+    let id: NonZero<u64> = unsafe { transmute(id) };
+    id.into()
 }
 
 pub fn assert_main_thread() {

@@ -1,5 +1,3 @@
-#![feature(thread_id_value)]
-
 mod dispatch;
 mod main_thread;
 mod parallel;
