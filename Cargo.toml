@@ -1,6 +1,6 @@
 [package]
 name = "hreads"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2024"
 description = "Multithreading primitives."
 license = "MIT OR Apache-2.0"
@@ -22,6 +22,7 @@ tokio = { version = "1.49.0", features = ["full"] }
 futures = "0.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { version = "0.3", features = ["Window", "Performance"] }
 gloo-timers = { version = "0.3", features = ["futures"] }
 wasm-bindgen-futures = "0.4"
 
