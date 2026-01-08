@@ -9,7 +9,7 @@ pub fn spawn<F, O>(future: F)
 where
     F: Future<Output = O> + Send + 'static,
     O: Send + 'static, {
-    std::thread::spawn(|| async_std::task::block_on(future));
+    tokio::spawn(future);
 }
 
 pub fn block_on<F>(future: F)
