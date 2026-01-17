@@ -1,3 +1,7 @@
+use std::fmt::Display;
+
+use log::error;
+
 #[cfg(wasm)]
 pub fn spawn<F>(future: F)
 where F: Future<Output = ()> + 'static {
@@ -10,6 +14,26 @@ where
     F: Future<Output = O> + Send + 'static,
     O: Send + 'static, {
     tokio::spawn(future);
+}
+
+#[cfg(not_wasm)]
+pub fn log_spawn<F, O, E>(future: F)
+where
+    F: Future<Output = Result<O, E>> + Send + 'static,
+    O: Send + 'static,
+    E: Send + Display + 'static, {
+    tokio::spawn(async {
+        match tokio::spawn(future).await {
+            Ok(exec_result) => {
+                if let Err(exec_result) = exec_result {
+                    error!("Future execution error: {exec_result}");
+                }
+            }
+            Err(join_err) => {
+                error!("Join error: {join_err}");
+            }
+        }
+    });
 }
 
 pub fn block_on<F>(future: F)
