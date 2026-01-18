@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use log::error;
 
 #[cfg(wasm)]
@@ -17,11 +15,8 @@ where
 }
 
 #[cfg(not_wasm)]
-pub fn log_spawn<F, O, E>(future: F)
-where
-    F: Future<Output = Result<O, E>> + Send + 'static,
-    O: Send + 'static,
-    E: Send + Display + 'static, {
+pub fn log_spawn<O>(future: impl Future<Output = anyhow::Result<O>> + Send + 'static)
+where O: Send + 'static {
     tokio::spawn(async {
         match tokio::spawn(future).await {
             Ok(exec_result) => {
