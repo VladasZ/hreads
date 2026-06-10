@@ -1,19 +1,17 @@
-use std::{
-    mem::transmute,
-    num::NonZero,
-    sync::atomic::{AtomicU64, Ordering},
-    thread::current,
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use log::error;
 
+static NEXT_THREAD_ID: AtomicU64 = AtomicU64::new(1);
 static MAIN_THREAD_ID: AtomicU64 = AtomicU64::new(0);
 
+thread_local! {
+    static THREAD_ID: u64 = NEXT_THREAD_ID.fetch_add(1, Ordering::Relaxed);
+}
+
+#[inline]
 pub fn current_thread_id() -> u64 {
-    // TODO: Use as_u64 when https://github.com/rust-lang/rust/issues/67939 is stabilized
-    let id = current().id();
-    let id: NonZero<u64> = unsafe { transmute(id) };
-    id.into()
+    THREAD_ID.with(|id| *id)
 }
 
 pub fn assert_main_thread() {
@@ -26,6 +24,7 @@ pub fn assert_main_thread() {
     assert!(is_main, "This operation can be called only from main thread");
 }
 
+#[inline]
 pub fn is_main_thread() -> bool {
     current_thread_id() == supposed_main_id()
 }
@@ -34,10 +33,13 @@ pub fn set_current_thread_as_main() {
     MAIN_THREAD_ID.store(current_thread_id(), Ordering::Relaxed);
 }
 
-pub(crate) fn supposed_main_id() -> u64 {
+#[inline]
+fn supposed_main_id() -> u64 {
     let id = MAIN_THREAD_ID.load(Ordering::Relaxed);
 
-    if id == 0 { 1 } else { id }
+    assert_ne!(id, 0, "Main thread is not set. Call set_current_thread_as_main() first.");
+
+    id
 }
 
 #[cfg(test)]
@@ -48,15 +50,54 @@ mod test {
     use serial_test::serial;
     use wasm_bindgen_test::wasm_bindgen_test;
 
-    use crate::{main_thread::MAIN_THREAD_ID, supposed_main_id};
+    use crate::{
+        is_main_thread,
+        main_thread::{MAIN_THREAD_ID, supposed_main_id},
+        set_current_thread_as_main,
+    };
+
+    #[test]
+    #[serial]
+    #[should_panic(expected = "Main thread is not set")]
+    fn unset_main_panics() {
+        MAIN_THREAD_ID.store(0, Ordering::Relaxed);
+        is_main_thread();
+    }
 
     #[serial]
     #[wasm_bindgen_test(unsupported = test)]
     fn test() {
-        MAIN_THREAD_ID.store(0, Ordering::Relaxed);
-        assert_eq!(supposed_main_id(), 1);
-
         MAIN_THREAD_ID.store(5, Ordering::Relaxed);
         assert_eq!(supposed_main_id(), 5);
+
+        set_current_thread_as_main();
+        assert!(is_main_thread());
+    }
+
+    #[test]
+    #[serial]
+    fn other_thread_is_not_main() {
+        set_current_thread_as_main();
+        assert!(is_main_thread());
+
+        std::thread::spawn(|| {
+            assert!(!is_main_thread());
+        })
+        .join()
+        .unwrap();
+
+        assert!(is_main_thread());
+    }
+
+    #[test]
+    #[serial]
+    fn thread_ids_are_unique() {
+        let current = crate::current_thread_id();
+        assert_ne!(current, 0);
+
+        let other = std::thread::spawn(crate::current_thread_id).join().unwrap();
+
+        assert_ne!(other, 0);
+        assert_ne!(current, other);
     }
 }

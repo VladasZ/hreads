@@ -1,3 +1,4 @@
+#[cfg(not_wasm)]
 use log::error;
 
 #[cfg(wasm)]
